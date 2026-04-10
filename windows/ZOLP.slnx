@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ZOLP.vcxproj" Id="a4a2c00c-46db-4196-8a58-79d05b2779f8" />
+</Solution>
