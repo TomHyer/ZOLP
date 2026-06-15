@@ -137,7 +137,7 @@ namespace ZOLP
             }
         }
 
-        AST_ operator()(const char* begin, const char* end)
+        AST_ operator()(const char* begin, const char* end, bool require_ket = true)
         {
             Lexer_ lex(ops_, brackets_);
             lex.Restart(begin, end);
@@ -149,6 +149,11 @@ namespace ZOLP
                 if (t == NONE_TOKEN)
                     break;
                 Insert(t);
+            }
+            if (require_ket)
+            {
+				for (auto p = current_; p; p = p->parent_)
+                    REQUIRE(!p->bra_ || brackets_.ketToBra_.count(p->bra_), "Unmatched opening bracket '" + string(1, p->bra_) + "'");
             }
             // if the whole expression was parenthesized, cast those off
             while (top_.state_ == State_::EMPTY && top_.children_.size() == 1 && top_.children_[0]->bra_)
