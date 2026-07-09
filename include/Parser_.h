@@ -44,18 +44,28 @@ namespace ZOLP
                     if (current_->state_ == State_::UNARY)
                     {
                         REQUIRE(!current_->children_.empty(), "unary without argument, like '( + )'");
+                        current_->state_ = State_::ATOM;
                     }
                     else if (current_->state_ == State_::BINARY)
                     {
                         REQUIRE(current_->children_.size() == 2, "binary without second argument, like 'A + )'");
+                        current_->state_ = State_::ATOM;
                     }
-                    current_->state_ = State_::ATOM;
                     current_ = current_->parent_;
                 }
                 REQUIRE(current_, "no open-brace found for " + next.val_);
                 REQUIRE(current_->bra_ == bra, string("wrong kind of open-brace found: ") + current_->bra_);
                 current_->bra_ = next.kind_;  // mark as closed
                 current_->state_ = State_::ATOM;
+
+				// special case to report function-returning-function, like f(x)(y)(z)
+				if (current_->parent_ && current_->parent_->parent_ && current_->parent_->bra_ && current_->parent_->parent_->state_ == State_::FUNCTION)
+				{  // hoick ourself up to sibling status
+					current_->parent_->parent_->children_.push_back(current_->parent_->children_.back());
+					current_->parent_->children_.pop_back();
+					current_->parent_->state_ = State_::ATOM;
+				}
+
                 return;
             }
             // open-brace
@@ -104,7 +114,7 @@ namespace ZOLP
                 }
                 while (lhsOp && lhsOp->state_ != State_::UNARY && lhsOp->state_ != State_::BINARY && !brackets_.IsBracket(lhsOp->bra_))
                     lhsOp = lhsOp->parent_;
-                if (!lhsOp || (lhsOp->bra_ && (lhsOp->state_ == State_::ATOM || brackets_.ketToBra_.count(lhsOp->bra_))))
+                if (!lhsOp || (lhsOp->bra_ && (lhsOp->state_ == State_::ATOM || lhsOp->state_ == State_::EMPTY || brackets_.ketToBra_.count(lhsOp->bra_))))
                     break;
                 if (precedence_.SplitLeft(lhsOp->head_, next))
                     break;  // lhs operator has lower precedence, like "2 + 3 *"
