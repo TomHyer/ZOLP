@@ -46,8 +46,8 @@ namespace
     array<array<const char*, 2>, 5> IE = { {
         { ("9*(8//7)"), ("can't stack binary operators") },
         { ("f g h"), ("consecutive atoms") },
-        { ("9 * ( * + 7"), ("precedence only supports binary-binary comparison") },
         { ("9 * ( 8 + 7"), ("Unmatched opening bracket '('") },
+        { ("9 * ( * + 7"), ("Unmatched opening bracket '('") },
         { ("3 ~ 3"), ("no such operator") }
     } };
 

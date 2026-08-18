@@ -3,5 +3,8 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Project Path="../InterpAdapter/InterpAdapter.vcxproj" Id="0d7d5eb7-43e7-45e7-b5b1-2d3a7de425a9">
+    <BuildDependency Project="ZOLP.vcxproj" />
+  </Project>
   <Project Path="ZOLP.vcxproj" Id="a4a2c00c-46db-4196-8a58-79d05b2779f8" />
 </Solution>
