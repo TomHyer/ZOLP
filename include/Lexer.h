@@ -22,6 +22,12 @@ namespace ZOLP
 
         void Emplace(const Token_& t, int offset = 0)
         {
+            if (t.val_.empty())
+            {
+				vals_[t.kind_].halt_ = t;
+                return;
+            }
+
             RHS_& child = vals_[t.val_[offset]];
             if (t.val_.size() == offset + 1)
                 child.halt_ = t;
@@ -56,7 +62,7 @@ namespace ZOLP
                     return *candidate;
                 }
                 ++p;
-                if (pr->second.halt_ != NONE_TOKEN)
+                if (!IsNone(pr->second.halt_))
                 {
                     candidate = &pr->second.halt_;
                     candidateEnd = p;

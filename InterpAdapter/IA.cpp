@@ -231,14 +231,13 @@ shared_ptr<const Node_> ActivateInterp(const ZOLP::AST_& ast)
 	if (ast.children_.size() == 1)
 	{  // input like f(x)
 		static const shared_ptr<const Node_> ZERO = make_shared<NodeConst_>(NodeConst_{ 0.0 });
-		REQUIRE(ast.children_[0]->bra_ != '(', "Expected f(...) for one-argument form of 'f'");
-		auto arg = ast.children_[0];
+		REQUIRE(ast.children_[0]->bra_ == ')', "Expected f(...) for one-argument form of 'f'");
+		const auto& arg = ast.children_[0];
 		return make_shared<NodeF_>(NodeF_{ ZERO, Activate(*arg) });
 	}
 	else if (ast.children_.size() == 2)
 	{  // input like f[1](x)
-		auto which = ast.children_[0];
-		REQUIRE(ast.children_[0]->bra_ != '[' && ast.children_[1]->bra_ != '(', "Expected f[...](...) for two-argument form of 'f'");
+		REQUIRE(ast.children_[0]->bra_ == ']' && ast.children_[1]->bra_ == ')', "Expected f[...](...) for two-argument form of 'f'");
 		return make_shared<NodeF_>(NodeF_{ Activate(*ast.children_[0]), Activate(*ast.children_[1])});
 	}
 	else
@@ -252,7 +251,7 @@ shared_ptr<const Node_> ActivateIf(const ZOLP::AST_& ast)
 		throw std::runtime_error("Expected comma-separated arguments in if(cond, v_true, v_false)");
 	if (ast.children_[0]->bra_ != ')')
 		throw std::runtime_error("Expected parentheses in if(cond, v_true, v_false)");
-	auto args = CommaSeparatedList<3>(ast.children_[0]);
+	auto args = CommaSeparatedList<3>(*ast.children_[0]);
 	unique_ptr<NodeIf_> retval(new NodeIf_);
 	retval->cond_ = Activate(*args[0]);
 	retval->then_ = Activate(*args[1]);
@@ -265,17 +264,17 @@ shared_ptr<const Node_> ActivateWith(const ZOLP::AST_& ast)
 	using namespace ZOLP;
 	if (ast.bra_ != '(')
 		throw std::runtime_error("Expected parentheses in with(<name>=<expr>, <body>)");
-	auto args = CommaSeparatedList<2>(ast.children_[0]);
+	auto args = CommaSeparatedList<2>(*ast.children_[0]);
 	auto assign = args[0];
 	if (assign->state_ != AST_::State_::BINARY || assign->head_.kind_ != '=')
 		throw std::runtime_error("Expected assignment in with(<name>=<expr>, <body>)");
-	auto name = assign->children_[0];
-	if (name->state_ != AST_::State_::ATOM || name->head_.kind_ != 'v')
+	const auto& name = assign->children_[0];
+	if (name->state_ != AST_::State_::ATOM || name->head_.kind_ != ALPHA_KIND)
 		throw std::runtime_error("Expected variable name in with(<name>=<expr>, <body>)");
-	if (name->head_.val_ == "f" || name->head_.val_ == "if" || name->head_.val_ == "with")
+	if (name->head_ == "f" || name->head_ == "if" || name->head_ == "with")
 		throw std::runtime_error("Cannot assign to reserved names");
-	auto expr = Activate(*args[1]);
-	auto body = Activate(*ast.children_[1]);
+	auto expr = Activate(*assign->children_[1]);
+	auto body = Activate(*args[1]);
 
 	return make_shared<NodeWith_>(NodeWith_(name->head_.val_, expr, body));
 }
@@ -296,7 +295,7 @@ shared_ptr<const Node_> ActivateExpression(const ZOLP::AST_& ast)
 	else if (ast.children_.size() == 1)  // unary
 	{
 		auto argNode = Activate(*ast.children_[0]);
-		if (ast.head_.kind_ == '-')
+		if (ast.head_ == '-')
 			return shared_ptr<const Node_>(new NodeUnary_<std::negate<double>>(argNode, std::negate<double>()));
 		throw std::runtime_error("Unexpected unary operator: " + ast.head_.val_);
 	}
@@ -324,17 +323,17 @@ shared_ptr<const Node_> ActivateExpression(const ZOLP::AST_& ast)
 				throw std::runtime_error("Unexpected binary operator: " + ast.head_.val_);
 		}
 		// multi-character tokens
-		if (ast.head_.val_ == ">=")
+		if (ast.head_ == ">=")
 			return MakeArithmetic(lhsNode, rhsNode, GE);
-		else if (ast.head_.val_ == "<=")
+		else if (ast.head_ == "<=")
 			return MakeArithmetic(lhsNode, rhsNode, LE);
-		else if (ast.head_.val_ == "==")
+		else if (ast.head_ == "==")
 			return MakeArithmetic(lhsNode, rhsNode, EQ);
-		else if (ast.head_.val_ == "!=")
+		else if (ast.head_ == "!=")
 			return MakeArithmetic(lhsNode, rhsNode, NE);
-		else if (ast.head_.val_ == "&&")
+		else if (ast.head_ == "&&")
 			return MakeLogical(lhsNode, rhsNode, false);
-		else if (ast.head_.val_ == "||")
+		else if (ast.head_ == "||")
 			return MakeLogical(lhsNode, rhsNode, true);
 		else
 			throw std::runtime_error("Unexpected binary operator: " + ast.head_.val_);
@@ -347,15 +346,15 @@ shared_ptr<const Node_> ActivateFunction(const ZOLP::AST_& ast)
 {
 	if (ast.head_.kind_ == ZOLP::ALPHA_KIND)  // name
 	{
-		if (ast.head_.val_ == "f")
+		if (ast.head_ == "f")
 		{
 			return ActivateInterp(ast);
 		}
-		if (ast.head_.val_ == "with")
+		if (ast.head_ == "with")
 		{
 			return ActivateWith(ast);
 		}
-		if (ast.head_.val_ == "if")
+		if (ast.head_ == "if")
 		{
 			return ActivateIf(ast);
 		}
@@ -391,6 +390,8 @@ shared_ptr<Interp1_> StringToInterp(const string& s, const Scope_& predefined)
 		.Left()("==")("!=")
 		.Left()('&')
 		.Left()('|')
+		.Left()("&&")
+		.Left()("||")
 		.Right()('=')
 		.Left()(',');
 	BracketList_ brackets(vector<Bracket_>({ { '(', ')' }, {'[', ']'} }));

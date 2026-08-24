@@ -5,7 +5,7 @@
 
 namespace ZOLP
 {
-    using std::shared_ptr;
+    using std::unique_ptr;
     using std::vector;
 
     struct AST_
@@ -21,7 +21,7 @@ namespace ZOLP
         char bra_;  // 0 if not parenthesized
         Token_ head_;
         AST_* parent_;
-        vector<shared_ptr<AST_>> children_;
+        vector<unique_ptr<AST_>> children_;
 
         AST_() : head_(NONE_TOKEN), parent_(nullptr), bra_(0), state_(State_::EMPTY) {}
     };

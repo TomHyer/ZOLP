@@ -21,7 +21,7 @@ namespace ZOLP
 
         AST_* Append(Token_ next)
         { 
-            if (current_->state_ == State_::EMPTY && next != NONE_TOKEN)
+            if (current_->state_ == State_::EMPTY && !IsNone(next))
             {
                 current_->head_ = next;
                 return current_;
@@ -63,7 +63,7 @@ namespace ZOLP
 				if (current_->parent_ && current_->parent_->parent_ && brackets_.ketToBra_.count(current_->parent_->bra_) 
                         && current_->parent_->parent_->state_ == State_::FUNCTION)
 				{  // hoick ourself up to sibling status
-					current_->parent_->parent_->children_.push_back(current_->parent_->children_.back());
+					current_->parent_->parent_->children_.push_back(std::move(current_->parent_->children_.back()));
 					current_->parent_->children_.pop_back();
 					current_->parent_->state_ = State_::ATOM;
 				}
@@ -146,14 +146,21 @@ namespace ZOLP
                         && brackets_.ketToBra_.count(current_->bra_))
                     current_ = current_->parent_;
                 AST_* parent = current_->parent_;
-                shared_ptr<AST_> temp(new AST_(*current_));
-                temp->parent_ = current_;
-                // and take this node for ourselves
+                const char grouping = current_->bra_;
+
+                auto lhs = std::make_unique<AST_>(std::move(*current_));
+                lhs->parent_ = current_;
+                lhs->bra_ = 0;
+                for (auto& child : lhs->children_)
+                    if (child)
+                        child->parent_ = lhs.get();
+
                 current_->state_ = State_::BINARY;
-                temp->bra_ = 0;  // grouping stays up there
+                current_->bra_ = grouping;
                 current_->head_ = next;
                 current_->parent_ = parent;
-                current_->children_ = { temp };
+                current_->children_.clear();
+                current_->children_.push_back(std::move(lhs));
             }
         }
 
@@ -161,12 +168,12 @@ namespace ZOLP
         {
             Lexer_ lex(ops_, brackets_);
             lex.Restart(begin, end);
-            top_ = AST_();
+            AST_ top;
             current_ = &top_;
             for ( ; ; )
             {
                 Token_ t = lex.Next();
-                if (t == NONE_TOKEN)
+                if (IsNone(t))
                     break;
                 Insert(t);
             }
@@ -178,29 +185,33 @@ namespace ZOLP
             // if the whole expression was parenthesized, cast those off
             while (top_.state_ == State_::EMPTY && top_.children_.size() == 1 && top_.children_[0]->bra_)
             {
-                top_.state_ = top_.children_[0]->state_;
-                top_.head_ = top_.children_[0]->head_;
-                auto newChildren = top_.children_[0]->children_;
-                top_.children_.clear();
-                top_.children_ = newChildren;
+                auto inner = std::move(top_.children_[0]);
+                top_.state_ = inner->state_;
+                top_.head_ = std::move(inner->head_);
+                top_.children_ = std::move(inner->children_);
+                for (auto& c : top_.children_)
+                    if (c)
+                        c->parent_ = &top_;
             }
             // close all possible operators
             for (auto p = &top_; p; )
             {
-                if (p->state_ == State_::UNARY && p->children_.size() == 1)
+                if (p->state_ == State_::UNARY)
                 {
+					REQUIRE(p->children_.size() == 1, "unary '" + p->head_.val_ + "' needs one argument");
                     p->state_ = State_::ATOM;
                     p = p->children_[0].get(); // continue down the slope
                 }
-                else if (p->state_ == State_::BINARY && p->children_.size() == 2)
+                else if (p->state_ == State_::BINARY)
                 {
+					REQUIRE(p->children_.size() == 2, "binary '" + p->head_.val_ + "' needs two arguments");
                     p->state_ = State_::ATOM;
                     p = p->children_[0].get(); // continue down the slope
                 }
                 else
                     break;
             }
-            return top_;
+            return std::move(top_);
         }
     };
 }  // leave ZOLP

@@ -6,6 +6,7 @@
 #include <vector>
 #include <utility>
 #include <set>
+#include <stdexcept>
 
 #define REQUIRE(cond, msg) if (cond) ; else throw std::runtime_error(msg);
 
@@ -36,15 +37,16 @@ namespace ZOLP
         char kind_;  // for single-character tokens, kind_==val_; otherwise non-printable
         string val_;
 
-        Token_(char c) : kind_(c), val_(1, c) {}
+		Token_(char c) : kind_(c) {}  // val_ is empty for single-character tokens
         Token_(const string& s, char kind) : kind_(kind), val_(s) {}
     };
     const Token_ NONE_TOKEN = { string(), 0};
     constexpr char ALPHA_KIND = 16, NUMERIC_KIND = 17;
 
-    inline bool operator==(const Token_& lhs, const Token_& rhs) { return lhs.val_ == rhs.val_; }
-    inline bool operator!=(const Token_& lhs, const Token_& rhs) { return lhs.val_ != rhs.val_; }
-    inline bool operator<(const Token_ & lhs, const Token_ & rhs) { return lhs.val_ < rhs.val_; }
+    inline bool IsNone(const Token_& t) { return t.kind_ == NONE_TOKEN.kind_; }
+    inline bool operator<(const Token_& lhs, const Token_& rhs) { return lhs.kind_ == rhs.kind_ ? lhs.val_ < rhs.val_ : lhs.kind_ < rhs.kind_; }
+    inline bool operator==(const Token_& lhs, char c) { return lhs.kind_ > NUMERIC_KIND && !(lhs.kind_ & 0x80) ? lhs.kind_ == c : lhs.val_.size() == 1 && lhs.val_[0] == c; }
+	inline bool operator==(const Token_& lhs, const string& s) { return lhs.val_.empty() ? s.size() == 1 && lhs.kind_ == s[0] : lhs.val_ == s; }
 
     struct Bracket_
     {
@@ -90,7 +92,7 @@ namespace ZOLP
             if (s.size() == 1)
                 return Register(s[0], binary);
             if (!multi_.count(s))
-                multi_.emplace(s, -static_cast<char>(1 + multi_.size()));
+                multi_.emplace(s, static_cast<char>(0x80 | (0xFF ^ (1 + multi_.size()))));
             Token_ retval(s, multi_[s]);
             set<Token_>& existing = binary ? binary_ : unary_;
             REQUIRE(!existing.count(retval), "multiple declarations of " + s);

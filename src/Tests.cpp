@@ -73,7 +73,7 @@ namespace
 
         for (const AST_* node = &ast; ; )
         {
-            if (node->head_.kind_ == ',')
+            if (node->head_ == ',')
             {
 				assert(node->children_.size() == 2);
                 consume(*node->children_[0]);
@@ -147,7 +147,7 @@ bool ZOLP::Test::RunAll(std::ostream& err)
     try {
         if (ParseCSList(intList.c_str(), intList.c_str() + intList.size()) != expectedList)
         {
-            err << "Test failed: ParseCSList('" << intList << "') did not return the expected list\n";
+            err << "Test failed: ParseCSList('" << intList << "') did not he expected list\n";
             return false;
         }
 	}
